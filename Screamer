@@ -1,0 +1,75 @@
+local Spawner = loadstring(game:HttpGet("https://raw.githubusercontent.com/RegularVynixu/DOORS-Entity-Spawner-V2/main/init.luau"))()
+
+-- Creating Screamer
+local entity = Spawner:Create({
+	Entity = {
+		Name = "Screamer",
+		Asset = "rbxassetid://85319970831962", -- Твоя модель
+		HeightOffset = 0
+	},
+	Movement = {
+		Speed = 165,
+		Delay = 3,
+		Reversed = false
+	},
+	Rebounding = {
+		Enabled = true,
+		Type = "Blitz",
+		Min = 2,
+		Max = 5,
+		Delay = 0.8
+	},
+	Damage = {
+		Enabled = true,
+		Range = 45,
+		Amount = 100
+	},
+	Lights = {
+		Flicker = { Enabled = true, Duration = 2.5 },
+		Shatter = true,
+		Repair = false
+	},
+	Earthquake = { Enabled = true },
+	CameraShake = {
+		Enabled = true,
+		Range = 120,
+		Values = {2, 25, 0.15, 2}
+	},
+	Death = {
+		Type = "Curious",
+		Hints = {
+			"You died from the Screamer.",
+			"He will throw you out of the closet!",
+			"Pink light is his sign.",
+		},
+		Cause = "Screamer"
+	}
+})
+
+-- Setting up callbacks with the CORRECT keys from the library
+if entity then
+    -- OnSpawned (The key is from line 89 of your code)
+    entity:SetCallback("OnSpawned", function()
+        local model = entity.Model
+        local mainPart = model:FindFirstChild("Main") or model:FindFirstChildWhichIsA("BasePart")
+        if mainPart then
+            local light = Instance.new("PointLight")
+            light.Color = Color3.fromRGB(255, 105, 180)
+            light.Range = 25
+            light.Brightness = 8
+            light.Parent = mainPart
+        end
+    end)
+
+    -- OnEnterRoom (The key is from line 92 of your code)
+    entity:SetCallback("OnEnterRoom", function(room)
+        local player = game.Players.LocalPlayer
+        if player.Character and player.Character:GetAttribute("Hiding") == true then
+            task.wait(0.1)
+            player.Character:SetAttribute("Hiding", false) -- ВЫКИДЫВАЕМ
+        end
+    end)
+
+    -- Launch
+    entity:Run(true)
+end
