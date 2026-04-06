@@ -1,0 +1,81 @@
+-- Greed (Instant Activation)
+local function TriggerGreedNow()
+    local canExit = false
+    local isDead = false
+    
+    -- 1. EFFECTS AND SOUND (Active immediately upon startup)
+    local lighting = game:GetService("Lighting")
+    local cc = lighting:FindFirstChild("MainColorCorrection") or lighting:FindFirstChildWhichIsA("ColorCorrectionEffect")
+    
+    if not cc then
+        cc = Instance.new("ColorCorrectionEffect", lighting)
+        cc.Name = "GreedCC"
+    end
+
+    local sound = Instance.new("Sound", workspace)
+    sound.SoundId = "rbxassetid://166047422"
+    sound.Volume = 5
+    sound:Play()
+    game:GetService("Debris"):AddItem(sound, 10)
+
+    -- Flashing lights right now
+    task.spawn(function()
+        for i = 1, 3 do
+            lighting.Ambient = Color3.new(0, 0, 0)
+            task.wait(0.1)
+            lighting.Ambient = Color3.new(0.5, 0.5, 0.5)
+            task.wait(0.1)
+        end
+    end)
+
+    -- 2. TURN ON THE PINK SCREEN INSTANTLY
+    game:GetService("TweenService"):Create(cc, TweenInfo.new(1), {
+        TintColor = Color3.fromRGB(255, 191, 154),
+        Contrast = -0.19,
+        Saturation = -0.19
+    }):Play()
+
+    -- 3. DEATH LOGIC (If you open the door while the pink screen is active)
+    local connection
+    connection = game.ReplicatedStorage.GameData.LatestRoom.Changed:Connect(function()
+        if not canExit and not isDead then
+            isDead = true
+            local char = game.Players.LocalPlayer.Character
+            if char and char:FindFirstChild("Humanoid") then
+                char.Humanoid.Health = 0
+                -- Твой скрипт скримера
+                loadstring(game:HttpGet("https://raw.githubusercontent.com/check78/Jumpscares/main/GreedJumpscare.txt"))()
+                game:GetService("ReplicatedStorage").GameStats["Player_".. game.Players.LocalPlayer.Name].Total.DeathCause.Value = "Greed"
+            end
+        end
+        if connection then connection:Disconnect() end
+    end)
+
+    -- 4. WAITING TIME (5.7 seconds)
+    task.wait(5.7)
+    canExit = true 
+
+    -- 5. BRINGING COLORS BACK
+    game:GetService("TweenService"):Create(cc, TweenInfo.new(2), {
+        TintColor = Color3.fromRGB(255, 255, 255),
+        Contrast = 0,
+        Saturation = 0
+    }):Play()
+    
+    task.wait(1)
+    if connection then connection:Disconnect() end
+    print("Greed отработал мгновенно и завершил работу.")
+end
+
+-- Launch without delay
+task.spawn(TriggerGreedNow)
+
+-- Removing Overseer at Lever
+workspace.CurrentRooms[game.ReplicatedStorage.GameData.LatestRoom.Value].Assets.ChildAdded:Connect(function(eye)
+	if eye.Name == "LeverForGate" then
+		task.wait(0.6)
+        if workspace:FindFirstChild("Overseer") then
+            workspace.Overseer:Destroy()
+        end
+	end
+end)
