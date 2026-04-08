@@ -1,0 +1,77 @@
+local Spawner = loadstring(game:HttpGet("https://raw.githubusercontent.com/RegularVynixu/DOORS-Entity-Spawner-V2/main/init.luau"))()
+
+-- 1. Create the Entity
+local entity = Spawner:Create({
+    Entity = {
+        Name = "Psychic",
+        Asset = "rbxassetid://126054995168616", -- Placeholder asset
+        HeightOffset = 0
+    },
+    Movement = {
+        Speed = 60, -- Moderate speed to allow player to run
+        Delay = 1,
+        Reversed = false
+    },
+    Damage = {
+        Enabled = true,
+        Range = 40,
+        Amount = 100
+    },
+    Lights = {
+        Flicker = { Enabled = true, Duration = 2 },
+        Shatter = false,
+        Repair = false
+    },
+    Earthquake = { Enabled = true },
+    CameraShake = {
+        Enabled = true,
+        Range = 100,
+        Values = {1.5, 20, 0.1, 1}
+    }
+})
+
+if entity then
+    local chasing = true
+
+    -- 2. INFINITE LOOP LOGIC (Until Door Opens)
+    entity:SetCallback("OnReachingEnd", function()
+        if chasing then
+            -- If door is not opened, teleport back and rush again
+            task.wait(0.5)
+            entity:Run(true)
+        end
+    end)
+
+    -- 3. STOP LOGIC (When LatestRoom changes)
+    local connection
+    connection = game:GetService("ReplicatedStorage").GameData.LatestRoom.Changed:Connect(function()
+        chasing = false
+        if entity.Model then
+            entity.Model:Destroy()
+            print("Psychic disappeared because the door was opened.")
+        end
+        if connection then connection:Disconnect() end
+    end)
+
+    -- 4. Visual Effects (Psychic Glow)
+    entity:SetCallback("OnSpawned", function()
+        if entity.Model and entity.Model.PrimaryPart then
+            local p = Instance.new("PointLight", entity.Model.PrimaryPart)
+            p.Color = Color3.fromRGB(150, 0, 255) -- Purple psychic glow
+            p.Brightness = 3
+            p.Range = 20
+        end
+    end)
+
+    -- 5. Sound (Distorted Whispers)
+    entity:SetCallback("OnEnterRoom", function()
+        local s = Instance.new("Sound", workspace)
+        s.SoundId = "rbxassetid://9114441544" -- Creepy whisper/static
+        s.Volume = 2
+        s:Play()
+        game:GetService("Debris"):AddItem(s, 5)
+    end)
+
+    -- Start the first rush
+    entity:Run(true)
+end
