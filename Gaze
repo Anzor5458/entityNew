@@ -1,0 +1,101 @@
+local Overseer = Instance.new("Model")
+Overseer.Parent = workspace
+Overseer.Name = "Overseer"
+
+local v = game.Players.LocalPlayer
+local char = v.Character or v.CharacterAdded:Wait()
+local hum = char:WaitForChild("Humanoid")
+local active = true
+
+-- Sound setup (Distortion/Static sound)
+local effectSound = Instance.new("Sound", workspace)
+effectSound.SoundId = "rbxassetid://9069609200" 
+effectSound.Volume = 2
+effectSound.Pitch = 0.6
+
+-- Camera Shaker setup
+local CameraShaker = require(game.ReplicatedStorage.CameraShaker)
+local camara = game.Workspace.CurrentCamera
+local camShake = CameraShaker.new(Enum.RenderPriority.Camera.Value, function(shakeCf)
+	camara.CFrame = camara.CFrame * shakeCf
+end)
+
+local currentLoadedRoom = workspace.CurrentRooms[game:GetService("ReplicatedStorage").GameData.LatestRoom.Value]
+local eyes = game:GetObjects("rbxassetid://12285389022")[1]
+
+local num = 0
+if currentLoadedRoom:FindFirstChild("Nodes") then
+   num = math.floor(#currentLoadedRoom.Nodes:GetChildren()/2)
+end
+
+eyes.CFrame = (num == 0 and currentLoadedRoom[currentLoadedRoom.Name] or currentLoadedRoom.Nodes[num]).CFrame + Vector3.new(0, 5, 0)
+eyes.Parent = Overseer
+
+-- Initial Visuals (Grey/Desaturated look)
+if eyes:IsA("BasePart") then
+    eyes.Color = Color3.fromRGB(100, 100, 100) -- Grey eyes
+    local glow = Instance.new("PointLight", eyes)
+    glow.Color = Color3.fromRGB(200, 200, 200) 
+    glow.Range = 15
+    glow.Brightness = 2
+end
+
+-- Destroy if new room is added
+game.Workspace.CurrentRooms.ChildAdded:Connect(function()
+    active = false
+    Overseer:Destroy()
+end)
+
+-- MAIN LOGIC: Speed Decrease & Vision Blur
+task.spawn(function()
+    while active do
+        if not eyes or not eyes.Parent then break end
+        local _, onScreen = camara:WorldToScreenPoint(eyes.Position)
+        
+        -- If player looks at Overseer
+        if onScreen then
+            active = false
+            effectSound:Play()
+            
+            -- 1. Vision Impairment (Grey & Dark screen)
+            local lighting = game.Lighting
+            local cc = Instance.new("ColorCorrectionEffect", lighting)
+            cc.Saturation = -1 -- Makes screen grey
+            cc.Contrast = 0.2
+            cc.Brightness = -0.2
+            
+            -- Fade out the effect over 5 seconds
+            game:GetService("TweenService"):Create(cc, TweenInfo.new(5), {Saturation = 0, Contrast = 0, Brightness = 0}):Play()
+            game:GetService("Debris"):AddItem(cc, 5.1)
+
+            -- 2. Slow Down (Decreasing speed)
+            local originalSpeed = hum.WalkSpeed
+            hum.WalkSpeed = 4 -- Heavy slowdown
+            
+            -- Gradually restore speed
+            task.spawn(function()
+                task.wait(4)
+                if hum then
+                    game:GetService("TweenService"):Create(hum, TweenInfo.new(2), {WalkSpeed = originalSpeed}):Play()
+                end
+            end)
+
+            -- 3. Camera Shake and low damage
+            camShake:Start()
+            camShake:ShakeOnce(5, 10, 0.5, 4) 
+            hum:TakeDamage(10)
+
+            -- Death handling
+            if hum.Health <= 0 then
+                game:GetService("ReplicatedStorage").GameStats["Player_".. v.Name].Total.DeathCause.Value = "Gaze"
+                task.wait(0.5)
+                loadstring(game:HttpGet("https://raw.githubusercontent.com/check78/GuidingLight/main/SeerDie.txt"))()
+            end
+            
+            -- Clean up Overseer
+            Overseer:Destroy()
+            break
+        end
+        task.wait(0.1)
+    end
+end)
