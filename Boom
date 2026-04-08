@@ -1,0 +1,96 @@
+local Overseer = Instance.new("Model")
+Overseer.Parent = workspace
+Overseer.Name = "Overseer"
+
+local v = game.Players.LocalPlayer
+local char = v.Character or v.CharacterAdded:Wait()
+local hum = char:WaitForChild("Humanoid")
+local active = true
+
+-- Setting the explosion sound (Leave a powerful bang)
+local expSound = Instance.new("Sound", workspace)
+expSound.SoundId = "rbxassetid://142070127" 
+expSound.Volume = 10
+
+-- Camera (Leave strong shaking)
+local CameraShaker = require(game.ReplicatedStorage.CameraShaker)
+local camara = game.Workspace.CurrentCamera
+local camShake = CameraShaker.new(Enum.RenderPriority.Camera.Value, function(shakeCf)
+	camara.CFrame = camara.CFrame * shakeCf
+end)
+
+local currentLoadedRoom = workspace.CurrentRooms[game:GetService("ReplicatedStorage").GameData.LatestRoom.Value]
+local eyes = game:GetObjects("rbxassetid://12285389022")[1]
+
+local num = 0
+if currentLoadedRoom:FindFirstChild("Nodes") then
+   num = math.floor(#currentLoadedRoom.Nodes:GetChildren()/2)
+end
+
+eyes.CFrame = (num == 0 and currentLoadedRoom[currentLoadedRoom.Name] or currentLoadedRoom.Nodes[num]).CFrame + Vector3.new(0, 5, 0)
+eyes.Parent = Overseer
+
+-- ADDING BEFORE THE EXPLOSION (Visual of the eyes themselves)
+if eyes:IsA("BasePart") then
+    eyes.Color = Color3.fromRGB(255, 200, 0) -- Making the eyes yellow initially
+    local glow = Instance.new("PointLight", eyes)
+    glow.Color = Color3.fromRGB(255, 215, 0) -- Yellow glow
+    glow.Range = 15
+    glow.Brightness = 3
+end
+
+game.Workspace.CurrentRooms.ChildAdded:Connect(function()
+    active = false
+    Overseer:Destroy()
+end)
+
+-- MAIN LOGIC OF EXPLOSION (On view)
+task.spawn(function()
+    while active do
+        if not eyes or not eyes.Parent then break end
+        local _, onScreen = camara:WorldToScreenPoint(eyes.Position)
+        if onScreen then
+            active = false
+            expSound:Play()
+            
+            -- 1. STRONG YELLOW FLASH (Blinding)
+            local lighting = game.Lighting
+            local flash = Instance.new("ColorCorrectionEffect", lighting)
+            flash.Brightness = 1
+            flash.Contrast = 0.5
+            flash.TintColor = Color3.fromRGB(255, 230, 150) -- Soft yellow tint of flash
+            game:GetService("TweenService"):Create(flash, TweenInfo.new(1.2), {Brightness = 0, Contrast = 0, TintColor = Color3.fromRGB(255, 255, 255)}):Play()
+            game:GetService("Debris"):AddItem(flash, 1.3)
+
+            -- 2. YELLOW EXPLOSION PARTICLES (Custom visual instead of standard)
+            local attachment = Instance.new("Attachment", workspace)
+            attachment.Position = eyes.Position
+            
+            local particles = Instance.new("ParticleEmitter", attachment)
+            particles.Color = ColorSequence.new(Color3.fromRGB(255, 255, 0), Color3.fromRGB(255, 150, 0)) -- From yellow to orange
+            particles.Size = NumberSequence.new(5, 0)
+            particles.Speed = NumberRange.new(20, 50)
+            particles.Lifetime = NumberRange.new(0.5, 1)
+            particles.Rate = 500
+            particles.SpreadAngle = Vector2.new(360, 360)
+            particles:Emit(200) -- One-time release
+            game:GetService("Debris"):AddItem(attachment, 1.1)
+
+            -- 3. SHAKE AND DAMAGE
+            camShake:Start()
+            camShake:ShakeOnce(25, 45, 0.2, 1.8) -- Increased shaking for bomb effect
+            hum:TakeDamage(85) -- Powerful one-time damage
+
+            -- Processing death
+            if hum.Health <= 0 then
+                game:GetService("ReplicatedStorage").GameStats["Player_".. v.Name].Total.DeathCause.Value = "Detonation"
+                task.wait(0.5)
+                loadstring(game:HttpGet("https://raw.githubusercontent.com/check78/GuidingLight/main/SeerDie.txt"))()
+            end
+            
+            Overseer:Destroy() -- Destroying the model
+            break
+        end
+        task.wait(0.1)
+    end
+end)
